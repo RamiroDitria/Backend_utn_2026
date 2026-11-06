@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: clientes-vehiculos
+          uri: ${VEHICULOS_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/clientes/**,/api/vehiculos/**
+        - id: ordenes
+          uri: ${ORDENES_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/ordenes/**
+        - id: notificaciones
+          uri: ${NOTIFICACIONES_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/notificaciones/**
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:8081/realms/taller/protocol/openid-connect/certs}

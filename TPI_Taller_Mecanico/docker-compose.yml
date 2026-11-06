@@ -1,0 +1,92 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-taller}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taller}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+
+  ms-clientes-vehiculos:
+    build: ./ms-clientes-vehiculos
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/clientes_vehiculos
+      DB_USER: ${POSTGRES_USER:-taller}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/taller/protocol/openid-connect/certs
+    ports:
+      - "8082:8082"   # expuesto solo para ver Swagger; el acceso normal es por el gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-ordenes:
+    build: ./ms-ordenes
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/ordenes
+      DB_USER: ${POSTGRES_USER:-taller}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/taller/protocol/openid-connect/certs
+      VEHICULOS_URL: http://ms-clientes-vehiculos:8082
+      NOTIFICACIONES_URL: http://ms-notificaciones:8084
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-notificaciones:
+    build: ./ms-notificaciones
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/notificaciones
+      DB_USER: ${POSTGRES_USER:-taller}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/taller/protocol/openid-connect/certs
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_PLANTILLA_PRESUPUESTO: ${WHATSAPP_PLANTILLA_PRESUPUESTO:-presupuesto_listo}
+      WHATSAPP_PLANTILLA_VEHICULO_LISTO: ${WHATSAPP_PLANTILLA_VEHICULO_LISTO:-vehiculo_listo}
+      WHATSAPP_IDIOMA: ${WHATSAPP_IDIOMA:-es_AR}
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./api-gateway
+    environment:
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/taller/protocol/openid-connect/certs
+      VEHICULOS_URL: http://ms-clientes-vehiculos:8082
+      ORDENES_URL: http://ms-ordenes:8083
+      NOTIFICACIONES_URL: http://ms-notificaciones:8084
+    ports:
+      - "8080:8080"
+    depends_on:
+      - ms-clientes-vehiculos
+      - ms-ordenes
+      - ms-notificaciones
+
+volumes:
+  pgdata:

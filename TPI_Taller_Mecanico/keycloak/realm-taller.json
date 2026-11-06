@@ -1,0 +1,54 @@
+{
+  "realm": "taller",
+  "enabled": true,
+  "accessTokenLifespan": 1800,
+  "roles": {
+    "realm": [
+      { "name": "JEFE_TALLER", "description": "Jefe de taller" },
+      { "name": "MECANICO", "description": "Mecánico" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "taller-api",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"]
+    }
+  ],
+  "users": [
+    {
+      "username": "jefe",
+      "enabled": true,
+      "email": "jefe@taller.local",
+      "emailVerified": true,
+      "firstName": "Jefe",
+      "lastName": "Taller",
+      "credentials": [{ "type": "password", "value": "jefe123", "temporary": false }],
+      "realmRoles": ["JEFE_TALLER"]
+    },
+    {
+      "username": "mecanico1",
+      "enabled": true,
+      "email": "mecanico1@taller.local",
+      "emailVerified": true,
+      "firstName": "Mecanico",
+      "lastName": "Uno",
+      "credentials": [{ "type": "password", "value": "mecanico123", "temporary": false }],
+      "realmRoles": ["MECANICO"]
+    },
+    {
+      "username": "mecanico2",
+      "enabled": true,
+      "email": "mecanico2@taller.local",
+      "emailVerified": true,
+      "firstName": "Mecanico",
+      "lastName": "Dos",
+      "credentials": [{ "type": "password", "value": "mecanico123", "temporary": false }],
+      "realmRoles": ["MECANICO"]
+    }
+  ]
+}
