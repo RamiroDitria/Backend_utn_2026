@@ -1,0 +1,23 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ms-clientes-vehiculos
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/clientes_vehiculos}
+    username: ${DB_USER:taller}
+    password: ${DB_PASSWORD:taller}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:8081/realms/taller/protocol/openid-connect/certs}
+
+vpic:
+  base-url: https://vpic.nhtsa.dot.gov/api
+  timeout-ms: 5000

@@ -1,0 +1,1032 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-4a1b-9c2d-123456789abc",
+    "name": "Taller Mecánico",
+    "description": "Colección comprometida en la sección 12 de 'Respuestas Cuestionario'. Recorre el proceso completo de una OT (alta de vehículo -> diagnóstico -> presupuesto -> decisión -> repuestos -> reparación -> adicional -> entrega), prueba la integración con vPIC y cierra con los casos negativos de las reglas de negocio y de seguridad. Pensada para correrse de punta a punta con el Collection Runner: cada request guarda en el entorno los ids que usan las siguientes. Los únicos datos iniciales son los usuarios de Keycloak (realm-taller.json); todo lo demás lo crea la propia colección.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Autenticación",
+      "item": [
+        {
+          "name": "Login jefe",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "username", "value": "{{jefeUser}}", "type": "text" },
+                { "key": "password", "value": "{{jefePass}}", "type": "text" }
+              ]
+            },
+            "url": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+            "description": "Obtiene el token JWT del jefe de taller (rol JEFE_TALLER)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('jefeToken', json.access_token);",
+                  "pm.test('Se obtuvo access_token', () => pm.expect(json.access_token).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login mecanico1",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "username", "value": "{{mecanico1User}}", "type": "text" },
+                { "key": "password", "value": "{{mecanico1Pass}}", "type": "text" }
+              ]
+            },
+            "url": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+            "description": "Obtiene el token JWT de mecanico1 (rol MECANICO). Es el mecánico que se asigna a la OT principal."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('mecanico1Token', json.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login mecanico2",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "username", "value": "{{mecanico2User}}", "type": "text" },
+                { "key": "password", "value": "{{mecanico2Pass}}", "type": "text" }
+              ]
+            },
+            "url": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+            "description": "Obtiene el token JWT de mecanico2 (rol MECANICO). Se usa solo en los casos negativos de RN-03 (mecánico no asignado)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('mecanico2Token', json.access_token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Clientes y vehículos (F01, RN-01)",
+      "item": [
+        {
+          "name": "Crear cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Carlos\",\n  \"apellido\": \"Gómez\",\n  \"telefono\": \"5493511234567\",\n  \"email\": \"carlos.gomez@example.com\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/clientes",
+            "description": "F01 - Registra un cliente del taller."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('clienteId', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear vehículo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"{{patente}}\",\n  \"marca\": \"Honda\",\n  \"modelo\": \"Accord\",\n  \"anio\": 2003,\n  \"clienteId\": {{clienteId}}\n}"
+            },
+            "url": "{{gatewayUrl}}/api/vehiculos",
+            "description": "F01 - Registra el vehículo validando la patente (RN-01). La patente se genera al azar en el pre-request para poder correr la colección varias veces sin chocar con RN-01 (duplicada)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function letra(){ return String.fromCharCode(65 + Math.floor(Math.random()*26)); }",
+                  "function digito(){ return Math.floor(Math.random()*10); }",
+                  "const patente = letra()+letra()+letra()+digito()+digito()+digito();",
+                  "pm.environment.set('patente', patente);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('vehiculoId', json.id);",
+                  "pm.test('La patente coincide con la generada', () => pm.expect(json.patente).to.eql(pm.environment.get('patente')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Diagnóstico (F02-F05)",
+      "item": [
+        {
+          "name": "Abrir OT y asignar mecánico",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehiculoId\": {{vehiculoId}},\n  \"mecanicoAsignado\": \"mecanico1\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes",
+            "description": "F02 - RN-02: el vehículo no puede tener otra OT abierta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('ordenId', json.id);",
+                  "pm.test('Estado RECIBIDA', () => pm.expect(json.estado).to.eql('RECIBIDA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar VIN (consulta vPIC)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"{{vin}}\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/vin",
+            "description": "F03 - RN-04: VIN de 17 caracteres sin I, O ni Q. Consulta vPIC; este VIN (1HGCM82633A004352) es un ejemplo real que NHTSA reconoce."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado EN_DIAGNOSTICO', () => pm.expect(json.estado).to.eql('EN_DIAGNOSTICO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar desperfecto (escáner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"ESCANER\",\n  \"codigoObd\": \"P0301\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/desperfectos",
+            "description": "F04 - RN-05: código OBD-II válido (P, C, B o U + 4 caracteres)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar desperfecto (manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"MANUAL\",\n  \"descripcion\": \"Ruido en la suspensión delantera\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/desperfectos",
+            "description": "F04 - RN-05: un desperfecto manual requiere descripción."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar repuesto necesario",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Pastillas de freno delanteras\",\n  \"cantidad\": 1\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/repuestos",
+            "description": "F05 - Indica el repuesto y la cantidad necesarios."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('repuestoId', json.repuestos[json.repuestos.length - 1].id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Presupuesto y decisión (F06-F07)",
+      "item": [
+        {
+          "name": "Generar presupuesto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"horasManoObra\": 2,\n  \"tarifaHora\": 15000,\n  \"otrosCargos\": 0,\n  \"preciosRepuestos\": [\n    { \"repuestoId\": {{repuestoId}}, \"precioUnitario\": 45000 }\n  ]\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/presupuestos",
+            "description": "F06 - RN-06: total = repuestos + mano de obra + otros cargos, vence a los 7 días. Dispara el WhatsApp al cliente (RN-09)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('presupuestoId', json.presupuestos[json.presupuestos.length - 1].id);",
+                  "pm.test('Estado PRESUPUESTADA', () => pm.expect(json.estado).to.eql('PRESUPUESTADA'));",
+                  "pm.test('Total = repuestos + mano de obra', () => {",
+                  "  const p = json.presupuestos[json.presupuestos.length - 1];",
+                  "  pm.expect(Number(p.total)).to.eql(Number(p.montoRepuestos) + Number(p.montoManoObra) + Number(p.otrosCargos));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar decisión del cliente (acepta)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aceptado\": true,\n  \"canal\": \"WHATSAPP\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/presupuestos/{{presupuestoId}}/decision",
+            "description": "F07 - RN-06/RN-07: el jefe de taller registra que el cliente aceptó el presupuesto por WhatsApp."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado ACEPTADA', () => pm.expect(json.estado).to.eql('ACEPTADA'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Repuestos y reparación (F08)",
+      "item": [
+        {
+          "name": "Registrar pedido de repuestos",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/repuestos/pedido",
+            "description": "F08 - RN-07: requiere la aceptación registrada. Como hay un repuesto aceptado, la OT queda Esperando repuestos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado ESPERANDO_REPUESTOS', () => pm.expect(json.estado).to.eql('ESPERANDO_REPUESTOS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar recepción del repuesto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/repuestos/{{repuestoId}}/recepcion",
+            "description": "F08 - RN-07: al llegar todos los repuestos aceptados, la OT pasa a En reparación."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado EN_REPARACION', () => pm.expect(json.estado).to.eql('EN_REPARACION'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Trabajo adicional durante la reparación (F09, RN-08)",
+      "item": [
+        {
+          "name": "Agregar desperfecto adicional",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"MANUAL\",\n  \"descripcion\": \"Pérdida de aceite detectada al reparar\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/desperfectos",
+            "description": "F09 - Como la OT está En reparación, el desperfecto se marca como adicional y la OT pasa a Aprobación adicional."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado APROBACION_ADICIONAL', () => pm.expect(json.estado).to.eql('APROBACION_ADICIONAL'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generar presupuesto adicional",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"horasManoObra\": 1,\n  \"tarifaHora\": 15000,\n  \"otrosCargos\": 0\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/presupuestos",
+            "description": "F06/RN-08 - Presupuesto adicional por la falla nueva. Se vuelve a avisar al cliente por WhatsApp (RN-09)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('presupuestoAdicionalId', json.presupuestos[json.presupuestos.length - 1].id);",
+                  "pm.test('Sigue En reparación hasta que se decida', () => pm.expect(json.estado).to.eql('APROBACION_ADICIONAL'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar decisión del adicional (acepta)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aceptado\": true,\n  \"canal\": \"PRESENCIAL\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/presupuestos/{{presupuestoAdicionalId}}/decision",
+            "description": "RN-08: lo nuevo no se ejecuta hasta que se acepta. Al no tener repuestos nuevos, la OT vuelve directo a En reparación."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado EN_REPARACION', () => pm.expect(json.estado).to.eql('EN_REPARACION'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Entrega (F10-F11)",
+      "item": [
+        {
+          "name": "Finalizar trabajo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/finalizar",
+            "description": "F10 - RN-10: todo lo aceptado debe estar terminado y sin adicional pendiente. Dispara el WhatsApp de 'listo para retirar'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado LISTA_PARA_RETIRAR', () => pm.expect(json.estado).to.eql('LISTA_PARA_RETIRAR'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar entrega",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId}}/entrega",
+            "description": "F11 - Cierra la OT. Resultado final del proceso principal: vehículo entregado y OT cerrada con su historial completo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Estado ENTREGADA', () => pm.expect(json.estado).to.eql('ENTREGADA'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Integraciones externas (vPIC)",
+      "item": [
+        {
+          "name": "Crear vehículo para VIN no reconocido",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"{{patente2}}\",\n  \"marca\": \"Renault\",\n  \"modelo\": \"Modelo local\",\n  \"anio\": 2015,\n  \"clienteId\": {{clienteId}}\n}"
+            },
+            "url": "{{gatewayUrl}}/api/vehiculos",
+            "description": "Vehículo nuevo para probar el camino de carga manual cuando vPIC no reconoce el VIN (muchos modelos argentinos se decodifican solo en parte)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function letra(){ return String.fromCharCode(65 + Math.floor(Math.random()*26)); }",
+                  "function digito(){ return Math.floor(Math.random()*10); }",
+                  "const patente = letra()+letra()+letra()+digito()+digito()+digito();",
+                  "pm.environment.set('patente2', patente);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('vehiculoId2', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Abrir OT para ese vehículo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehiculoId\": {{vehiculoId2}},\n  \"mecanicoAsignado\": \"mecanico1\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes",
+            "description": "F02 - OT auxiliar solo para ejercitar el camino de vPIC sin tocar la OT principal."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('ordenId3', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar VIN no reconocido (carga manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"AAAAAAAAAAAAAAAAA\",\n  \"motor\": \"2.0 4 cil.\",\n  \"combustible\": \"Nafta\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId3}}/vin",
+            "description": "F03 - El VIN tiene formato válido (17 caracteres, sin I/O/Q) pero no corresponde a un vehículo real: vPIC no lo reconoce y el servicio cae a carga manual, marcando los datos como no verificados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verificar datos no verificados",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/vehiculos/{{vehiculoId2}}",
+            "description": "RN-04 - Confirma que, al no reconocer vPIC el VIN, el vehículo quedó con datosVerificados=false y con el motor/combustible cargados a mano."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('datosVerificados es false', () => pm.expect(json.datosVerificados).to.eql(false));",
+                  "pm.test('motor cargado a mano', () => pm.expect(json.motor).to.eql('2.0 4 cil.'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 - Casos negativos",
+      "item": [
+        {
+          "name": "RN-01 - Patente con formato inválido",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"ABC12\",\n  \"marca\": \"Ford\",\n  \"modelo\": \"Fiesta\",\n  \"anio\": 2020,\n  \"clienteId\": {{clienteId}}\n}"
+            },
+            "url": "{{gatewayUrl}}/api/vehiculos",
+            "description": "RN-01 - La patente no cumple el formato AAA123 ni AA123AA. Debe rechazarse con 422 y código RN-01."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Código RN-01', () => pm.expect(pm.response.json().codigo).to.eql('RN-01'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "RN-01 - Patente duplicada",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patente\": \"{{patente}}\",\n  \"marca\": \"Ford\",\n  \"modelo\": \"Fiesta\",\n  \"anio\": 2020,\n  \"clienteId\": {{clienteId}}\n}"
+            },
+            "url": "{{gatewayUrl}}/api/vehiculos",
+            "description": "RN-01 - Reutiliza la patente creada en la carpeta 02. Debe rechazarse con 409 y código RN-01."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Código RN-01', () => pm.expect(pm.response.json().codigo).to.eql('RN-01'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Acceso sin token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gatewayUrl}}/api/clientes",
+            "description": "Sin Authorization: el gateway debe responder 401 antes de llegar a ms-clientes-vehiculos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Acceso con rol incorrecto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"No\",\n  \"apellido\": \"Autorizado\",\n  \"telefono\": \"5493510000000\",\n  \"email\": \"no.autorizado@example.com\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/clientes",
+            "description": "Sección 10: registrar un cliente es exclusivo de JEFE_TALLER. Con el token de mecanico1 debe responder 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Abrir OT auxiliar para las pruebas de RN-03/RN-04/RN-07",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehiculoId\": {{vehiculoId}},\n  \"mecanicoAsignado\": \"mecanico1\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes",
+            "description": "RN-02 no lo bloquea: a esta altura la OT principal del vehículo ya está Entregada. Esta OT auxiliar se usa solo para los próximos casos negativos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('ordenId2', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "RN-04 - VIN inválido",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"1HGCM82633A00435I\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId2}}/vin",
+            "description": "RN-04 - El VIN contiene una 'I', prohibida. Debe rechazarse con 422 y código RN-04 antes de consultar vPIC."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Código RN-04', () => pm.expect(pm.response.json().codigo).to.eql('RN-04'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "RN-03 - Mecánico no asignado",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico2Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"MANUAL\",\n  \"descripcion\": \"Intento de un mecánico no asignado\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId2}}/desperfectos",
+            "description": "RN-03 - La OT está asignada a mecanico1. mecanico2 intenta cargar un desperfecto y debe recibir 403 con código RN-03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('Código RN-03', () => pm.expect(pm.response.json().codigo).to.eql('RN-03'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar VIN válido (para continuar)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"{{vin}}\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId2}}/vin",
+            "description": "Deja la OT auxiliar en diagnóstico para poder presupuestarla y probar RN-07."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar desperfecto (para poder presupuestar)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanico1Token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"MANUAL\",\n  \"descripcion\": \"Chequeo general\"\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId2}}/desperfectos",
+            "description": "RN-06 exige al menos un desperfecto para poder generar el presupuesto."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generar presupuesto (sin decidir todavía)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"horasManoObra\": 1,\n  \"tarifaHora\": 10000,\n  \"otrosCargos\": 0\n}"
+            },
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId2}}/presupuestos",
+            "description": "Deja la OT en Presupuestada, sin decisión del cliente, para probar RN-07 a continuación."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('presupuestoId2', json.presupuestos[json.presupuestos.length - 1].id);",
+                  "pm.test('Estado PRESUPUESTADA', () => pm.expect(json.estado).to.eql('PRESUPUESTADA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "RN-07 - Pedir repuestos sin decisión del cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jefeToken}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/ordenes/{{ordenId2}}/repuestos/pedido",
+            "description": "RN-07 - Sin aceptación del cliente no se piden repuestos. Debe responder 422 con código RN-07."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Código RN-07', () => pm.expect(pm.response.json().codigo).to.eql('RN-07'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

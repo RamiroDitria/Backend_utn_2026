@@ -1,0 +1,33 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: ms-notificaciones
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/notificaciones}
+    username: ${DB_USER:taller}
+    password: ${DB_PASSWORD:taller}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:8081/realms/taller/protocol/openid-connect/certs}
+
+whatsapp:
+  enabled: ${WHATSAPP_ENABLED:false}       # false: los envíos se simulan en el log
+  api-url: https://graph.facebook.com/v21.0
+  token: ${WHATSAPP_TOKEN:}
+  phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+  plantilla-presupuesto: ${WHATSAPP_PLANTILLA_PRESUPUESTO:presupuesto_listo}
+  plantilla-vehiculo-listo: ${WHATSAPP_PLANTILLA_VEHICULO_LISTO:vehiculo_listo}
+  idioma: ${WHATSAPP_IDIOMA:es_AR}
+  timeout-ms: 5000
+
+notificaciones:
+  max-intentos: 5
+  reintento-ms: 60000
