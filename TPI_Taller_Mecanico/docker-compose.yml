@@ -28,7 +28,9 @@ services:
       - ./keycloak:/opt/keycloak/data/import:ro
 
   ms-clientes-vehiculos:
-    build: ./ms-clientes-vehiculos
+    build:
+      context: .
+      dockerfile: ms-clientes-vehiculos/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/clientes_vehiculos
       DB_USER: ${POSTGRES_USER:-taller}
@@ -41,7 +43,9 @@ services:
         condition: service_healthy
 
   ms-ordenes:
-    build: ./ms-ordenes
+    build:
+      context: .
+      dockerfile: ms-ordenes/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/ordenes
       DB_USER: ${POSTGRES_USER:-taller}
@@ -56,7 +60,9 @@ services:
         condition: service_healthy
 
   ms-notificaciones:
-    build: ./ms-notificaciones
+    build:
+      context: .
+      dockerfile: ms-notificaciones/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/notificaciones
       DB_USER: ${POSTGRES_USER:-taller}
@@ -75,7 +81,9 @@ services:
         condition: service_healthy
 
   api-gateway:
-    build: ./api-gateway
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
     environment:
       KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/taller/protocol/openid-connect/certs
       VEHICULOS_URL: http://ms-clientes-vehiculos:8082

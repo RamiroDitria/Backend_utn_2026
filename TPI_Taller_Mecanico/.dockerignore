@@ -1,0 +1,11 @@
+.git
+.env
+*.log
+target/
+.idea/
+*.iml
+.vscode/
+postman/
+keycloak/
+postgres/
+*.pdf
